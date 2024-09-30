@@ -28,7 +28,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "bcm2837_gpio.h"
+#include "bcm2835_gpio.h"
 
 static pin_t col_pins[] = {26, 27, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
 static pin_t led_pins[] = {20, 21, 22, 23, 24, 25};
@@ -107,9 +107,9 @@ struct pidp11 {
 
 void set_or_clear_pin(volatile uint32_t *gpio, pin_t pin, bool value) {
   if (value) {
-    bcm2837_gpio_clear_pins(gpio, &pin, 1);
+    bcm2835_gpio_clear_pins(gpio, &pin, 1);
   } else {
-    bcm2837_gpio_set_pins(gpio, &pin, 1);
+    bcm2835_gpio_set_pins(gpio, &pin, 1);
   }
 }
 
@@ -122,27 +122,27 @@ int main(int argc, char **argv) {
       NULL, mem_length, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, 0);
   close(mem_fd);
 
-  printf("Initializing BCM2837 GPIO\n");
-  bcm2837_gpio_init(gpio);
+  printf("Initializing bcm2835 GPIO\n");
+  bcm2835_gpio_init(gpio);
 
   // PiDP11: initialize
   printf("Initializing PiDP11\n");
-  bcm2837_gpio_set_pin_function(gpio, led_pins, OUT, n_led_pins);
-  bcm2837_gpio_set_pin_function(gpio, col_pins, OUT, n_col_pins);
-  bcm2837_gpio_set_pin_function(gpio, row_pins, OUT, n_row_pins);
+  bcm2835_gpio_set_pin_function(gpio, led_pins, OUT, n_led_pins);
+  bcm2835_gpio_set_pin_function(gpio, col_pins, OUT, n_col_pins);
+  bcm2835_gpio_set_pin_function(gpio, row_pins, OUT, n_row_pins);
 
-  bcm2837_gpio_clear_pins(gpio, led_pins, n_led_pins);
-  bcm2837_gpio_set_pins(gpio, col_pins, n_col_pins);
-  bcm2837_gpio_set_pins(gpio, row_pins, n_row_pins);
+  bcm2835_gpio_clear_pins(gpio, led_pins, n_led_pins);
+  bcm2835_gpio_set_pins(gpio, col_pins, n_col_pins);
+  bcm2835_gpio_set_pins(gpio, row_pins, n_row_pins);
 
   printf("Press the HALT switch to quit.\n");
   while (!pidp11.switch_ena_halt) {
-    bcm2837_gpio_set_pin_function(gpio, col_pins, OUT, n_col_pins);
+    bcm2835_gpio_set_pin_function(gpio, col_pins, OUT, n_col_pins);
     // Go through each row and column in turn.
     for (int i = 0; i < n_led_pins; i++) {
       pin_t led_pin[] = {led_pins[i]};
       if (pidp11.switch_test) {
-        bcm2837_gpio_clear_pins(gpio, col_pins, n_col_pins);
+        bcm2835_gpio_clear_pins(gpio, col_pins, n_col_pins);
       } else {
         switch (i) {
         case 0:
@@ -219,22 +219,22 @@ int main(int argc, char **argv) {
         }
       }
 
-      bcm2837_gpio_set_pins(gpio, led_pin, 1);
+      bcm2835_gpio_set_pins(gpio, led_pin, 1);
       // Let the LED stay on for a short amount of time
       // Refresh 6 led rows every 60 seconds.  Move this elsewhere.
       usleep((1000000 / 60) / 6);
-      bcm2837_gpio_clear_pins(gpio, led_pin, 1);
+      bcm2835_gpio_clear_pins(gpio, led_pin, 1);
     }
 
-    bcm2837_gpio_set_pins(gpio, row_pins, n_row_pins);
-    bcm2837_gpio_pull_pins(gpio, col_pins, UP, n_col_pins);
-    bcm2837_gpio_set_pin_function(gpio, col_pins, IN, n_col_pins);
+    bcm2835_gpio_set_pins(gpio, row_pins, n_row_pins);
+    bcm2835_gpio_pull_pins(gpio, col_pins, UP, n_col_pins);
+    bcm2835_gpio_set_pin_function(gpio, col_pins, IN, n_col_pins);
     for (int i = 0; i < n_row_pins; i++) {
       pin_t row_pin[] = {row_pins[i]};
-      bcm2837_gpio_clear_pins(gpio, row_pin, 1);
+      bcm2835_gpio_clear_pins(gpio, row_pin, 1);
       usleep(10);
       uint64_t value;
-      bcm2837_gpio_get_bits(gpio, &value);
+      bcm2835_gpio_get_bits(gpio, &value);
       switch (i) {
       case 0:
         pidp11.switch_reg &= 0xfffffffffffff000;
@@ -267,9 +267,9 @@ int main(int argc, char **argv) {
         printf("DANGER: There are only three rows.");
 #endif
       }
-      bcm2837_gpio_set_pins(gpio, row_pin, 1);
+      bcm2835_gpio_set_pins(gpio, row_pin, 1);
     }
-    bcm2837_gpio_pull_pins(gpio, col_pins, OFF, n_col_pins);
+    bcm2835_gpio_pull_pins(gpio, col_pins, OFF, n_col_pins);
 
     // Set the address to the switch register.
     pidp11.address = pidp11.switch_reg;
@@ -299,17 +299,17 @@ int main(int argc, char **argv) {
 
   printf("HALT detected.\n");
   printf("Setting GPIOs to IN.\n");
-  bcm2837_gpio_set_pin_function(gpio, led_pins, IN, n_led_pins);
-  bcm2837_gpio_set_pin_function(gpio, col_pins, IN, n_col_pins);
-  bcm2837_gpio_set_pin_function(gpio, row_pins, IN, n_row_pins);
+  bcm2835_gpio_set_pin_function(gpio, led_pins, IN, n_led_pins);
+  bcm2835_gpio_set_pin_function(gpio, col_pins, IN, n_col_pins);
+  bcm2835_gpio_set_pin_function(gpio, row_pins, IN, n_row_pins);
 
   printf("Restoring default pullup/down state.\n");
   pin_t default_up[] = {4, 5, 6, 7, 8};
   pin_t default_down[] = {26, 27, 9,  10, 11, 12, 13, 20,
                           21, 22, 23, 24, 25, 16, 17, 18};
-  bcm2837_gpio_pull_pins(gpio, default_up, UP,
+  bcm2835_gpio_pull_pins(gpio, default_up, UP,
                          sizeof default_up / sizeof default_up[0]);
-  bcm2837_gpio_pull_pins(gpio, default_down, DOWN,
+  bcm2835_gpio_pull_pins(gpio, default_down, DOWN,
                          sizeof default_down / sizeof default_down[0]);
 
   munmap((void *)gpio, mem_length);
