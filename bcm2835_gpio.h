@@ -27,35 +27,36 @@
 #include <stdint.h>
 
 // clang-format off
-#define bcm2835_GPIO_GPFSEL0   (0x00 >> 2)
-#define bcm2835_GPIO_GPFSEL1   (0x04 >> 2)
-#define bcm2835_GPIO_GPFSEL2   (0x08 >> 2)
-#define bcm2835_GPIO_GPFSEL3   (0x0C >> 2)
-#define bcm2835_GPIO_GPFSEL4   (0x10 >> 2)
-#define bcm2835_GPIO_GPFSEL5   (0x14 >> 2)
-#define bcm2835_GPIO_GPSET0    (0x1C >> 2)
-#define bcm2835_GPIO_GPSET1    (0x20 >> 2)
-#define bcm2835_GPIO_GPCLR0    (0x28 >> 2)
-#define bcm2835_GPIO_GPCLR1    (0x2C >> 2)
-#define bcm2835_GPIO_GPLEV0    (0x34 >> 2)
-#define bcm2835_GPIO_GPLEV1    (0x38 >> 2)
-#define bcm2835_GPIO_GPEDS0    (0x40 >> 2)
-#define bcm2835_GPIO_GPEDS1    (0x44 >> 2)
-#define bcm2835_GPIO_GPREN0    (0x4C >> 2)
-#define bcm2835_GPIO_GPREN1    (0x50 >> 2)
-#define bcm2835_GPIO_GPFEN0    (0x48 >> 2)
-#define bcm2835_GPIO_GPFEN1    (0x5C >> 2)
-#define bcm2835_GPIO_GPHEN0    (0x64 >> 2)
-#define bcm2835_GPIO_GPHEN1    (0x68 >> 2)
-#define bcm2835_GPIO_GPLEN0    (0x70 >> 2)
-#define bcm2835_GPIO_GPLEN1    (0x74 >> 2)
-#define bcm2835_GPIO_GPPAREN0  (0x7C >> 2)
-#define bcm2835_GPIO_GPPAREN1  (0x80 >> 2)
-#define bcm2835_GPIO_GPPAFEN0  (0x88 >> 2)
-#define bcm2835_GPIO_GPPAFEN1  (0x8C >> 2)
-#define bcm2835_GPIO_GPPUD     (0x94 >> 2)
-#define bcm2835_GPIO_GPPUDCLK0 (0x98 >> 2)
-#define bcm2835_GPIO_GPPUDCLK1 (0x9C >> 2)
+/* The offests of the GPIO registers. */
+static const int GPFSEL0   = 0x00 >> 2;
+static const int GPFSEL1   = 0x04 >> 2;
+static const int GPFSEL2   = 0x08 >> 2;
+static const int GPFSEL3   = 0x0C >> 2;
+static const int GPFSEL4   = 0x10 >> 2;
+static const int GPFSEL5   = 0x14 >> 2;
+static const int GPSET0    = 0x1C >> 2;
+static const int GPSET1    = 0x20 >> 2;
+static const int GPCLR0    = 0x28 >> 2;
+static const int GPCLR1    = 0x2C >> 2;
+static const int GPLEV0    = 0x34 >> 2;
+static const int GPLEV1    = 0x38 >> 2;
+static const int GPEDS0    = 0x40 >> 2;
+static const int GPEDS1    = 0x44 >> 2;
+static const int GPREN0    = 0x4C >> 2;
+static const int GPREN1    = 0x50 >> 2;
+static const int GPFEN0    = 0x48 >> 2;
+static const int GPFEN1    = 0x5C >> 2;
+static const int GPHEN0    = 0x64 >> 2;
+static const int GPHEN1    = 0x68 >> 2;
+static const int GPLEN0    = 0x70 >> 2;
+static const int GPLEN1    = 0x74 >> 2;
+static const int GPPAREN0  = 0x7C >> 2;
+static const int GPPAREN1  = 0x80 >> 2;
+static const int GPPAFEN0  = 0x88 >> 2;
+static const int GPPAFEN1  = 0x8C >> 2;
+static const int GPPUD     = 0x94 >> 2;
+static const int GPPUDCLK0 = 0x98 >> 2;
+static const int GPPUDCLK1 = 0x9C >> 2;
 // clang-format on
 
 typedef unsigned int pin_t;
@@ -73,17 +74,187 @@ typedef enum _pin_function_t {
 
 typedef enum _pull_control_t { OFF, DOWN, UP } pull_control_t;
 
-void bcm2835_gpio_init(volatile uint32_t *gpio);
-void bcm2835_gpio_set_pin_function(volatile uint32_t *gpio, pin_t *pins,
-                                   pin_function_t value, size_t n);
-void bcm2835_gpio_set_bits(volatile uint32_t *gpio, uint64_t bits);
-void bcm2835_gpio_set_pins(volatile uint32_t *gpio, pin_t *pins, size_t n);
-void bcm2835_gpio_clear_bits(volatile uint32_t *gpio, uint64_t bits);
-void bcm2835_gpio_clear_pins(volatile uint32_t *gpio, pin_t *pins, size_t n);
-void bcm2835_gpio_get_bits(volatile uint32_t *gpio, uint64_t *bits);
-void bcm2835_gpio_pull_bits(volatile uint32_t *gpio, uint64_t bits,
-                            pull_control_t pull);
-void bcm2835_gpio_pull_pins(volatile uint32_t *gpio, pin_t *pins,
-                            pull_control_t pull, size_t n);
+typedef struct _bcm2835_gpio_t {
+  volatile uint32_t *base;
+} bcm2835_gpio_t;
+
+typedef enum _detection_type_t {
+  NONE,
+  FALLING,
+  RISING,
+  LO,
+  HI,
+  ASYNC_FALLING,
+  ASYNC_RISING
+} detection_type_t;
+
+/**
+ * Initialize the bcm2835 GPIO data structure.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] base Pointer to the BCM2835 GPIO registers.
+ * @return zero on success.
+ */
+int bcm2835_gpio_init(bcm2835_gpio_t *gpio, volatile uint32_t *base);
+
+/**
+ * Close a bcm2835 data structure.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @return zero on success.
+ */
+int bcm2835_gpio_close(bcm2835_gpio_t *gpio);
+
+/**
+ * Set the GPIO pin functions.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The mask of pins whose function to change.
+ * @param[in] value The function to assign to the pins.
+ * @return zero on success.
+ */
+int bcm2835_gpio_set_function_bits(bcm2835_gpio_t *gpio, uint64_t pins,
+                                   pin_function_t value);
+
+/**
+ * Set the GPIO pin functions.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The list of pins whose function to be changed.
+ * @param[in] n The number of elements in the pins list.
+ * @param[in] value The function to assign to the pins.
+ * @return zero on success.
+ */
+int bcm2835_gpio_set_function_pins(bcm2835_gpio_t *gpio, pin_t *pins, size_t n,
+                                   pin_function_t value);
+
+/**
+ * Get the GPIO pin functions. The caller provides a pointer to an
+ * array that holds the function values for the requested pins.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The list of pins whose function to be changed.
+ * @param[out] values The function values for the pins.
+ * @param[in] n The number of elements in the pins and values lists.
+ * @return zero on success.
+ */
+int bcm2835_gpio_get_function_pins(bcm2835_gpio_t *gpio, pin_t *pins,
+                                   pin_function_t *values, size_t n);
+
+/**
+ * Set or clear (up to the first 64) GPIO bits.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] bits The mask of GPIO bits to set or clear.
+ * @param[in] value if zero, clear the bits, otherwise set the bits.
+ * @return zero on success.
+ */
+int bcm2835_gpio_set_bits(bcm2835_gpio_t *gpio, uint64_t pins, char value);
+
+/**
+ * Set or clear GPIO bits.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The list of GPIO pins to set or clear.
+ * @param[in] n The number of elements in the pins list.
+ * @param[in] value if zero, clear the bits, otherwise set the bits.
+ * @return zero on success.
+ */
+int bcm2835_gpio_set_pins(bcm2835_gpio_t *gpio, pin_t *pins, size_t n,
+                          char value);
+
+/**
+ * Get the values of the first 64 GPIO bits.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[out] values The values of the GPIO pins.
+ * @return zero on success.
+ */
+int bcm2835_gpio_get_bits(bcm2835_gpio_t *gpio, uint64_t *values);
+
+/**
+ * Get the values of the GPIO bits.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The list of GPIO pins to set or clear.
+ * @param[out] values The values of the GPIO pins.
+ * @param[in] n The number of elements in the pins and values lists.
+ * @return zero on success.
+ */
+int bcm2835_gpio_get_pins(bcm2835_gpio_t *gpio, pin_t *pins, char *values,
+                          size_t n);
+
+/**
+ * Set the enable event detection bits in the first 64 GPIO pins.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The mask of GPIO bits whose event detection will be enabled.
+ * @param[in] value The event detection type to enable.
+ * @return zero on success.
+ */
+int bcm2835_gpio_set_enable_event_detect_bits(bcm2835_gpio_t *gpio,
+                                              uint64_t pins,
+                                              detection_type_t value);
+/**
+ * Set the enable event detection bits in the first 64 GPIO pins.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The list of GPIO pins whose event detection will be enabled.
+ * @param[in] n The number of elements in the pins list.
+ * @param[in] value The event detection type to enable.
+ * @return zero on success.
+ */
+int bcm2835_gpio_set_enable_event_detect_pins(bcm2835_gpio_t *gpio, pin_t *pins,
+                                              size_t n, detection_type_t value);
+
+/**
+ * Get the set of pins within the first 64 GPIO pins whose event detection
+ * is enabled.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[out] pins The pins with the given event enabled.
+ * @param[in] value The event detection type to check.
+ * @return zero on success.
+ */
+int bcm2835_gpio_get_enable_event_detect_bits(bcm2835_gpio_t *gpio,
+                                              uint64_t *pins,
+                                              detection_type_t value);
+
+/**
+ * Get the set of pins within the first 64 GPIO pins whose event detection
+ * is enabled.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The list of pins to check.
+ * @param[out] value The event detection type for the corresponding pin.
+ * @param[in] n The number of elements in the pins and value lists.
+ * @return zero on success.
+ */
+int bcm2835_gpio_get_enable_event_detect_pins(bcm2835_gpio_t *gpio, pin_t *pins,
+                                              detection_type_t *values,
+                                              size_t n);
+
+/**
+ * Set the internal pullup / pulldown state of the GPIO pins.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The mask of pins whose pullup/down configuration will change.
+ * @param[in] value The pullup/pulldown value to apply to the pins.
+ * @return zero on success.
+ */
+int bcm2835_gpio_set_pull_bits(bcm2835_gpio_t *gpio, uint64_t pins,
+                               pull_control_t value);
+
+/**
+ * Set the internal pullup / pulldown state of the GPIO pins.
+ *
+ * @param[in] gpio The GPIO data structure
+ * @param[in] pins The list of pins whose pullup/down configuration will change.
+ * @param[in] n The number of elements in the pins list.
+ * @param[in] value The pullup/pulldown value to apply to the pins.
+ * @return zero on success.
+ */
+int bcm2835_gpio_set_pull_pins(bcm2835_gpio_t *gpio, pin_t *pins, size_t n,
+                               pull_control_t value);
 
 #endif

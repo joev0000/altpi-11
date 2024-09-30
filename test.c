@@ -105,112 +105,116 @@ struct pidp11 {
   bool switch_data_rot2;
 };
 
-void set_or_clear_pin(volatile uint32_t *gpio, pin_t pin, bool value) {
-  if (value) {
-    bcm2835_gpio_clear_pins(gpio, &pin, 1);
-  } else {
-    bcm2835_gpio_set_pins(gpio, &pin, 1);
-  }
-}
-
 int main(int argc, char **argv) {
   struct pidp11 pidp11 = {0};
 
   int mem_fd = open("/dev/gpiomem", O_RDWR | O_SYNC);
   size_t mem_length = 0x100;
-  volatile uint32_t *gpio = (uint32_t *)mmap(
+  volatile uint32_t *base = (uint32_t *)mmap(
       NULL, mem_length, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, 0);
   close(mem_fd);
 
+  bcm2835_gpio_t gpio;
+
   printf("Initializing bcm2835 GPIO\n");
-  bcm2835_gpio_init(gpio);
+  bcm2835_gpio_init(&gpio, base);
 
   // PiDP11: initialize
   printf("Initializing PiDP11\n");
-  bcm2835_gpio_set_pin_function(gpio, led_pins, OUT, n_led_pins);
-  bcm2835_gpio_set_pin_function(gpio, col_pins, OUT, n_col_pins);
-  bcm2835_gpio_set_pin_function(gpio, row_pins, OUT, n_row_pins);
+  bcm2835_gpio_set_function_pins(&gpio, led_pins, n_led_pins, OUT);
+  bcm2835_gpio_set_function_pins(&gpio, col_pins, n_col_pins, OUT);
+  bcm2835_gpio_set_function_pins(&gpio, row_pins, n_row_pins, OUT);
 
-  bcm2835_gpio_clear_pins(gpio, led_pins, n_led_pins);
-  bcm2835_gpio_set_pins(gpio, col_pins, n_col_pins);
-  bcm2835_gpio_set_pins(gpio, row_pins, n_row_pins);
+  bcm2835_gpio_set_pins(&gpio, led_pins, n_led_pins, 0);
+  bcm2835_gpio_set_pins(&gpio, col_pins, n_col_pins, 1);
+  bcm2835_gpio_set_pins(&gpio, row_pins, n_row_pins, 1);
 
   printf("Press the HALT switch to quit.\n");
   while (!pidp11.switch_ena_halt) {
-    bcm2835_gpio_set_pin_function(gpio, col_pins, OUT, n_col_pins);
+    bcm2835_gpio_set_function_pins(&gpio, col_pins, n_col_pins, OUT);
     // Go through each row and column in turn.
     for (int i = 0; i < n_led_pins; i++) {
       pin_t led_pin[] = {led_pins[i]};
       if (pidp11.switch_test) {
-        bcm2835_gpio_clear_pins(gpio, col_pins, n_col_pins);
+        bcm2835_gpio_set_pins(&gpio, col_pins, n_col_pins, 0);
       } else {
         switch (i) {
         case 0:
           for (int j = 0; j < n_col_pins; j++) {
-            set_or_clear_pin(gpio, col_pins[j], pidp11.address & (1 << j));
+            bcm2835_gpio_set_pins(&gpio, &col_pins[j], 1,
+                                  !(pidp11.address & (1 << j)));
           }
           break;
         case 1:
           for (int j = 0; j < 10; j++) {
-            set_or_clear_pin(gpio, col_pins[j],
-                             pidp11.address & (1 << (j + 12)));
+            bcm2835_gpio_set_pins(&gpio, &col_pins[j], 1,
+                                  !(pidp11.address & (1 << (j + 12))));
           }
           break;
         case 2:
-          set_or_clear_pin(gpio, col_pins[0],
-                           pidp11.addressing_length == ADDRESS_22);
-          set_or_clear_pin(gpio, col_pins[1],
-                           pidp11.addressing_length == ADDRESS_18);
-          set_or_clear_pin(gpio, col_pins[2],
-                           pidp11.addressing_length == ADDRESS_16);
-          set_or_clear_pin(gpio, col_pins[3], pidp11.data_ref);
-          set_or_clear_pin(gpio, col_pins[4],
-                           pidp11.run_level == RUN_LEVEL_KERNEL);
-          set_or_clear_pin(gpio, col_pins[5],
-                           pidp11.run_level == RUN_LEVEL_SUPER);
-          set_or_clear_pin(gpio, col_pins[6],
-                           pidp11.run_level == RUN_LEVEL_USER);
-          set_or_clear_pin(gpio, col_pins[7],
-                           pidp11.run_state == RUN_STATE_MASTER);
-          set_or_clear_pin(gpio, col_pins[8],
-                           pidp11.run_state == RUN_STATE_PAUSE);
-          set_or_clear_pin(gpio, col_pins[9],
-                           pidp11.run_state == RUN_STATE_RUN);
-          set_or_clear_pin(gpio, col_pins[10], pidp11.address_err);
-          set_or_clear_pin(gpio, col_pins[11], pidp11.parity_err);
+          // set_or_clear_pin(&gpio, col_pins[0], pidp11.addressing_length ==
+          // ADDRESS_22);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[0], 1,
+                                pidp11.addressing_length != ADDRESS_22);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[1], 1,
+                                pidp11.addressing_length != ADDRESS_18);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[2], 1,
+                                pidp11.addressing_length != ADDRESS_16);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[3], 1, !pidp11.data_ref);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[4], 1,
+                                pidp11.run_level != RUN_LEVEL_KERNEL);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[5], 1,
+                                pidp11.run_level != RUN_LEVEL_SUPER);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[6], 1,
+                                pidp11.run_level != RUN_LEVEL_USER);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[7], 1,
+                                pidp11.run_state != RUN_STATE_MASTER);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[8], 1,
+                                pidp11.run_state != RUN_STATE_PAUSE);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[9], 1,
+                                pidp11.run_state != RUN_STATE_RUN);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[10], 1, !pidp11.address_err);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[11], 1, !pidp11.parity_err);
           break;
         case 3:
           for (int j = 0; j < n_col_pins; j++) {
-            set_or_clear_pin(gpio, col_pins[j], pidp11.data & (1 << j));
+            bcm2835_gpio_set_pins(&gpio, &col_pins[j], 1,
+                                  !(pidp11.data & (1 << j)));
           }
           break;
         case 4:
           for (int j = 0; j < 4; j++) {
-            set_or_clear_pin(gpio, col_pins[j], pidp11.data & (1 << (j + 12)));
+            bcm2835_gpio_set_pins(&gpio, &col_pins[j], 1,
+                                  !(pidp11.data & (1 << (j + 12))));
           }
-          set_or_clear_pin(gpio, col_pins[4], pidp11.parity_low);
-          set_or_clear_pin(gpio, col_pins[5], pidp11.parity_high);
-          set_or_clear_pin(gpio, col_pins[6], pidp11.addr_mode == ADDR_USER_D);
-          set_or_clear_pin(gpio, col_pins[7], pidp11.addr_mode == ADDR_SUPER_D);
-          set_or_clear_pin(gpio, col_pins[8],
-                           pidp11.addr_mode == ADDR_KERNEL_D);
-          set_or_clear_pin(gpio, col_pins[9],
-                           pidp11.addr_mode == ADDR_CONS_PHY);
-          set_or_clear_pin(gpio, col_pins[10], pidp11.data_mode == DATA_PATHS);
-          set_or_clear_pin(gpio, col_pins[11],
-                           pidp11.data_mode == DATA_BUS_REG);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[4], 1, !pidp11.parity_low);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[5], 1, !pidp11.parity_high);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[6], 1,
+                                pidp11.addr_mode != ADDR_USER_D);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[7], 1,
+                                pidp11.addr_mode != ADDR_SUPER_D);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[8], 1,
+                                pidp11.addr_mode != ADDR_KERNEL_D);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[9], 1,
+                                pidp11.addr_mode != ADDR_CONS_PHY);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[10], 1,
+                                pidp11.data_mode != DATA_PATHS);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[11], 1,
+                                pidp11.data_mode != DATA_BUS_REG);
           break;
         case 5:
-          set_or_clear_pin(gpio, col_pins[6], pidp11.addr_mode == ADDR_USER_I);
-          set_or_clear_pin(gpio, col_pins[7], pidp11.addr_mode == ADDR_SUPER_I);
-          set_or_clear_pin(gpio, col_pins[8],
-                           pidp11.addr_mode == ADDR_KERNEL_I);
-          set_or_clear_pin(gpio, col_pins[9],
-                           pidp11.addr_mode == ADDR_PROG_PHY);
-          set_or_clear_pin(gpio, col_pins[10],
-                           pidp11.data_mode == DATA_MU_A_FPP_CPU);
-          set_or_clear_pin(gpio, col_pins[11],
-                           pidp11.data_mode == DATA_DISP_REG);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[6], 1,
+                                pidp11.addr_mode != ADDR_USER_I);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[7], 1,
+                                pidp11.addr_mode != ADDR_SUPER_I);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[8], 1,
+                                pidp11.addr_mode != ADDR_KERNEL_I);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[9], 1,
+                                pidp11.addr_mode != ADDR_PROG_PHY);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[10], 1,
+                                pidp11.data_mode != DATA_MU_A_FPP_CPU);
+          bcm2835_gpio_set_pins(&gpio, &col_pins[11], 1,
+                                pidp11.data_mode != DATA_DISP_REG);
           break;
 #ifdef DEBUG
         default:
@@ -219,22 +223,22 @@ int main(int argc, char **argv) {
         }
       }
 
-      bcm2835_gpio_set_pins(gpio, led_pin, 1);
+      bcm2835_gpio_set_pins(&gpio, led_pin, 1, 1);
       // Let the LED stay on for a short amount of time
       // Refresh 6 led rows every 60 seconds.  Move this elsewhere.
       usleep((1000000 / 60) / 6);
-      bcm2835_gpio_clear_pins(gpio, led_pin, 1);
+      bcm2835_gpio_set_pins(&gpio, led_pin, 1, 0);
     }
 
-    bcm2835_gpio_set_pins(gpio, row_pins, n_row_pins);
-    bcm2835_gpio_pull_pins(gpio, col_pins, UP, n_col_pins);
-    bcm2835_gpio_set_pin_function(gpio, col_pins, IN, n_col_pins);
+    bcm2835_gpio_set_pins(&gpio, row_pins, n_row_pins, 1);
+    bcm2835_gpio_set_pull_pins(&gpio, col_pins, n_col_pins, UP);
+    bcm2835_gpio_set_function_pins(&gpio, col_pins, n_col_pins, IN);
     for (int i = 0; i < n_row_pins; i++) {
       pin_t row_pin[] = {row_pins[i]};
-      bcm2835_gpio_clear_pins(gpio, row_pin, 1);
+      bcm2835_gpio_set_pins(&gpio, row_pin, 1, 0);
       usleep(10);
       uint64_t value;
-      bcm2835_gpio_get_bits(gpio, &value);
+      bcm2835_gpio_get_bits(&gpio, &value);
       switch (i) {
       case 0:
         pidp11.switch_reg &= 0xfffffffffffff000;
@@ -267,9 +271,9 @@ int main(int argc, char **argv) {
         printf("DANGER: There are only three rows.");
 #endif
       }
-      bcm2835_gpio_set_pins(gpio, row_pin, 1);
+      bcm2835_gpio_set_pins(&gpio, row_pin, 1, 1);
     }
-    bcm2835_gpio_pull_pins(gpio, col_pins, OFF, n_col_pins);
+    bcm2835_gpio_set_pull_pins(&gpio, col_pins, n_col_pins, OFF);
 
     // Set the address to the switch register.
     pidp11.address = pidp11.switch_reg;
@@ -299,20 +303,21 @@ int main(int argc, char **argv) {
 
   printf("HALT detected.\n");
   printf("Setting GPIOs to IN.\n");
-  bcm2835_gpio_set_pin_function(gpio, led_pins, IN, n_led_pins);
-  bcm2835_gpio_set_pin_function(gpio, col_pins, IN, n_col_pins);
-  bcm2835_gpio_set_pin_function(gpio, row_pins, IN, n_row_pins);
+  bcm2835_gpio_set_function_pins(&gpio, led_pins, n_led_pins, IN);
+  bcm2835_gpio_set_function_pins(&gpio, col_pins, n_col_pins, IN);
+  bcm2835_gpio_set_function_pins(&gpio, row_pins, n_row_pins, IN);
 
   printf("Restoring default pullup/down state.\n");
   pin_t default_up[] = {4, 5, 6, 7, 8};
   pin_t default_down[] = {26, 27, 9,  10, 11, 12, 13, 20,
                           21, 22, 23, 24, 25, 16, 17, 18};
-  bcm2835_gpio_pull_pins(gpio, default_up, UP,
-                         sizeof default_up / sizeof default_up[0]);
-  bcm2835_gpio_pull_pins(gpio, default_down, DOWN,
-                         sizeof default_down / sizeof default_down[0]);
+  bcm2835_gpio_set_pull_pins(&gpio, default_up,
+                             sizeof default_up / sizeof default_up[0], UP);
+  bcm2835_gpio_set_pull_pins(
+      &gpio, default_down, sizeof default_down / sizeof default_down[0], DOWN);
 
-  munmap((void *)gpio, mem_length);
+  bcm2835_gpio_close(&gpio);
+  munmap((void *)base, mem_length);
 
   return 0;
 }
