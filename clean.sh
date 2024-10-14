@@ -1,2 +1,5 @@
 set -xe
-rm *.o test
+rm sim_frontpanel.* \
+   sim_sock.*
+rm *.o \
+   test
