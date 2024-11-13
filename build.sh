@@ -1,9 +1,12 @@
-set -xe
+#!/bin/sh
+set -xeu
 
 SIMH_SRC=${SIMH_SRC:-../simh}
-SIMH_OBJ="sim_frontpanel.o sim_sock.o"
+SIMH_OBJ="sim_sock.o"
 
 COMMON_OBJ="pidp11.o bcm2835_gpio.o"
+
+CC_FLAGS=${CC_FLAGS:-"-DDEBUG -g"}
 
 cp $SIMH_SRC/sim_sock.h \
    $SIMH_SRC/sim_sock.c \
@@ -12,7 +15,7 @@ cp $SIMH_SRC/sim_sock.h \
    .
 
 for f in *.c ; do
-  gcc -DDEBUG -g -Wall -c $f
+  gcc -Wall $CC_FLAGS -c $f
 done
 
 
