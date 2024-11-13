@@ -37,12 +37,10 @@ void pidp11_cleanup(void *context) {
   pidp11_t *pidp11 = (pidp11_t *)context;
   bcm2835_gpio_t *gpio = pidp11->gpio;
 
-  printf("Setting GPIOs to IN.\n");
   bcm2835_gpio_set_function_pins(gpio, led_pins, n_led_pins, IN);
   bcm2835_gpio_set_function_pins(gpio, col_pins, n_col_pins, IN);
   bcm2835_gpio_set_function_pins(gpio, row_pins, n_row_pins, IN);
 
-  printf("Restoring default pullup/down state.\n");
   pin_t default_up[] = {4, 5, 6, 7, 8};
   pin_t default_down[] = {26, 27, 9,  10, 11, 12, 13, 20,
                           21, 22, 23, 24, 25, 16, 17, 18};
@@ -215,6 +213,9 @@ int pidp11_init(pidp11_t *pidp11, bcm2835_gpio_t *gpio) {
   bcm2835_gpio_set_pins(gpio, led_pins, n_led_pins, 0);
   bcm2835_gpio_set_pins(gpio, col_pins, n_col_pins, 1);
   bcm2835_gpio_set_pins(gpio, row_pins, n_row_pins, 1);
+
+  pidp11->data_mode = DATA_PATHS;
+  pidp11->addr_mode = ADDR_CONS_PHY;
 
   pthread_create(&pidp11->update_thread, NULL, pidp11_update, pidp11);
   return 0;
