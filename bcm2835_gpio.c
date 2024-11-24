@@ -26,36 +26,11 @@
 
 #include "bcm2835_gpio.h"
 
-/**
- * Convert an array of pin indices into a 64 bit value. Since the BCM2835
- * has only 54 GPIO pins, ignore any pin index greater than 53.
- *
- * @param pins the list of pins.
- * @param n the number of pins in the list.
- * @returns an unsigned 64-bit integer
- */
-uint64_t pins_to_bits(pin_t *pins, size_t n) {
-  uint64_t bits = 0;
-  for (int i = 0; i < n; i++) {
-    if (pins[i] < 54) {
-      bits |= 1 << pins[i];
-    }
-  }
-  return bits;
-}
+int bcm2835_gpio_close(gpio_t *gpio) { return GPIO_SUCCESS; }
 
-int bcm2835_gpio_init(bcm2835_gpio_t *gpio, volatile uint32_t *base) {
-  if (base == NULL) {
-    return GPIO_ERR_INVALID_BASE;
-  }
-  gpio->base = base;
-  return GPIO_SUCCESS;
-}
-
-int bcm2835_gpio_close(bcm2835_gpio_t *gpio) { return GPIO_SUCCESS; }
-
-int bcm2835_gpio_set_function_bits(bcm2835_gpio_t *gpio, uint64_t pins,
+int bcm2835_gpio_set_function_bits(gpio_t *gpio, uint64_t pins,
                                    pin_function_t value) {
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
 
   if (pins & 0xffc0000000000000) {
     return GPIO_ERR_INVALID_PIN;
@@ -75,7 +50,7 @@ int bcm2835_gpio_set_function_bits(bcm2835_gpio_t *gpio, uint64_t pins,
         }
       }
 
-      *(gpio->base + GPFSEL0 + gpfsel) = reg_value;
+      *(base + GPFSEL0 + gpfsel) = reg_value;
     }
 
     pins = pins >> 10;
@@ -89,17 +64,19 @@ int bcm2835_gpio_set_function_bits(bcm2835_gpio_t *gpio, uint64_t pins,
         reg_value |= value << (i * 3);
       }
     }
-    *(gpio->base + GPFSEL5) = reg_value;
+    *(base + GPFSEL5) = reg_value;
   }
 
   return GPIO_SUCCESS;
 };
 
-int bcm2835_gpio_set_function_pins(bcm2835_gpio_t *gpio, pin_t *pins, size_t n,
+int bcm2835_gpio_set_function_pins(gpio_t *gpio, pin_t *pins, size_t n,
                                    pin_function_t value) {
-  uint32_t gpfsel[6] = {*(gpio->base + GPFSEL0), *(gpio->base + GPFSEL1),
-                        *(gpio->base + GPFSEL2), *(gpio->base + GPFSEL3),
-                        *(gpio->base + GPFSEL4), *(gpio->base + GPFSEL5)};
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
+
+  uint32_t gpfsel[6] = {*(base + GPFSEL0), *(base + GPFSEL1),
+                        *(base + GPFSEL2), *(base + GPFSEL3),
+                        *(base + GPFSEL4), *(base + GPFSEL5)};
 
   for (int i = 0; i < n; i++) {
     int pin = pins[i];
@@ -114,24 +91,26 @@ int bcm2835_gpio_set_function_pins(bcm2835_gpio_t *gpio, pin_t *pins, size_t n,
     }
   }
 
-  *(gpio->base + GPFSEL0) = gpfsel[0];
-  *(gpio->base + GPFSEL1) = gpfsel[1];
-  *(gpio->base + GPFSEL2) = gpfsel[2];
-  *(gpio->base + GPFSEL3) = gpfsel[3];
-  *(gpio->base + GPFSEL4) = gpfsel[4];
-  *(gpio->base + GPFSEL5) = gpfsel[5];
+  *(base + GPFSEL0) = gpfsel[0];
+  *(base + GPFSEL1) = gpfsel[1];
+  *(base + GPFSEL2) = gpfsel[2];
+  *(base + GPFSEL3) = gpfsel[3];
+  *(base + GPFSEL4) = gpfsel[4];
+  *(base + GPFSEL5) = gpfsel[5];
 
   return GPIO_SUCCESS;
 }
 
-int bcm2835_gpio_get_function_pins(bcm2835_gpio_t *gpio, pin_t *pins,
+int bcm2835_gpio_get_function_pins(gpio_t *gpio, pin_t *pins,
                                    pin_function_t *values, size_t n) {
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
+
   for (int i = 0; i < n; i++) {
     if (pins[i] < 54) {
       int reg = pins[i] / 10;
       int bit = pins[i] % 10;
 
-      values[i] = (*(gpio->base + GPFSEL0 + reg) >> (bit * 3)) & 0x7;
+      values[i] = (*(base + GPFSEL0 + reg) >> (bit * 3)) & 0x7;
     } else {
       return GPIO_ERR_INVALID_PIN;
     }
@@ -139,41 +118,42 @@ int bcm2835_gpio_get_function_pins(bcm2835_gpio_t *gpio, pin_t *pins,
   return GPIO_SUCCESS;
 }
 
-int bcm2835_gpio_set_bits(bcm2835_gpio_t *gpio, uint64_t pins, char value) {
+int bcm2835_gpio_set_bits(gpio_t *gpio, uint64_t pins, char value) {
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
+
   if ((pins & 0xffc0000000000000) != 0) {
     return GPIO_ERR_INVALID_PIN;
   }
   if (value == 0) {
-    *(gpio->base + GPCLR0) = pins;
-    *(gpio->base + GPCLR1) = pins >> 32;
+    *(base + GPCLR0) = pins;
+    *(base + GPCLR1) = pins >> 32;
   } else {
-    *(gpio->base + GPSET0) = pins;
-    *(gpio->base + GPSET1) = pins >> 32;
+    *(base + GPSET0) = pins;
+    *(base + GPSET1) = pins >> 32;
   }
 
   return GPIO_SUCCESS;
 };
 
-int bcm2835_gpio_set_pins(bcm2835_gpio_t *gpio, pin_t *pins, size_t n,
-                          char value) {
+int bcm2835_gpio_set_pins(gpio_t *gpio, pin_t *pins, size_t n, char value) {
   return bcm2835_gpio_set_bits(gpio, pins_to_bits(pins, n), value);
 }
 
-int bcm2835_gpio_get_bits(bcm2835_gpio_t *gpio, uint64_t *pins) {
-  *pins = *(gpio->base + GPLEV0) |
-          ((uint64_t)(*(gpio->base + GPLEV1) & 0x001fffff) << 32);
+int bcm2835_gpio_get_bits(gpio_t *gpio, uint64_t *pins) {
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
+  *pins = *(base + GPLEV0) | ((uint64_t)(*(base + GPLEV1) & 0x001fffff) << 32);
   return GPIO_SUCCESS;
 }
 
-int bcm2835_gpio_get_pins(bcm2835_gpio_t *gpio, pin_t *pins, char *values,
-                          size_t n) {
+int bcm2835_gpio_get_pins(gpio_t *gpio, pin_t *pins, char *values, size_t n) {
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
   for (int i = 0; i < n; i++) {
     if (pins[i] < 32) {
-      if ((*(gpio->base + GPLEV0) & (1 << pins[i])) != 0) {
+      if ((*(base + GPLEV0) & (1 << pins[i])) != 0) {
         values[i] = -1; // all ones.
       }
     } else if (pins[i] < 54) {
-      if ((*(gpio->base + GPLEV1) & (1 << (pins[i] - 32))) != 0) {
+      if ((*(base + GPLEV1) & (1 << (pins[i] - 32))) != 0) {
         values[i] = -1; // all ones.
       }
     } else {
@@ -186,112 +166,108 @@ int bcm2835_gpio_get_pins(bcm2835_gpio_t *gpio, pin_t *pins, char *values,
 
 // get the GPEDSn values.  Set all 54 GPEDSn bits to clear them.
 // TODO: maybe have a mask param?
-int bcm2835_gpio_get_and_clear_events(bcm2835_gpio_t *gpio, uint64_t *values) {
-  *values = ((uint64_t) * (gpio->base + GPEDS1) << 32) | *(gpio->base + GPEDS0);
-  *(gpio->base + GPEDS1) = 0x003fffff;
-  *(gpio->base + GPEDS0) = 0xffffffff;
+int bcm2835_gpio_get_and_clear_events(gpio_t *gpio, uint64_t *values) {
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
+  *values = ((uint64_t) * (base + GPEDS1) << 32) | *(base + GPEDS0);
+  *(base + GPEDS1) = 0x003fffff;
+  *(base + GPEDS0) = 0xffffffff;
 
   return GPIO_SUCCESS;
 }
 
-int bcm2835_gpio_set_enable_event_detect_bits(bcm2835_gpio_t *gpio,
-                                              uint64_t pins,
+int bcm2835_gpio_set_enable_event_detect_bits(gpio_t *gpio, uint64_t pins,
                                               detection_type_t value) {
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
   if (pins & 0xffc0000000000000) {
     return GPIO_ERR_INVALID_PIN;
   }
   if (value & DETECT_RISING) {
-    *(gpio->base + GPREN0) |= pins;
-    *(gpio->base + GPREN1) |= pins >> 32;
+    *(base + GPREN0) |= pins;
+    *(base + GPREN1) |= pins >> 32;
   }
   if (value & DETECT_FALLING) {
-    *(gpio->base + GPFEN0) |= pins;
-    *(gpio->base + GPFEN1) |= pins >> 32;
+    *(base + GPFEN0) |= pins;
+    *(base + GPFEN1) |= pins >> 32;
   }
   if (value & DETECT_HI) {
-    *(gpio->base + GPHEN0) |= pins;
-    *(gpio->base + GPHEN1) |= pins >> 32;
+    *(base + GPHEN0) |= pins;
+    *(base + GPHEN1) |= pins >> 32;
   }
   if (value & DETECT_LO) {
-    *(gpio->base + GPLEN0) |= pins;
-    *(gpio->base + GPLEN1) |= pins >> 32;
+    *(base + GPLEN0) |= pins;
+    *(base + GPLEN1) |= pins >> 32;
   }
   if (value & DETECT_ASYNC_RISING) {
-    *(gpio->base + GPAREN0) |= pins;
-    *(gpio->base + GPAREN1) |= pins >> 32;
+    *(base + GPAREN0) |= pins;
+    *(base + GPAREN1) |= pins >> 32;
   }
   if (value & DETECT_ASYNC_FALLING) {
-    *(gpio->base + GPAFEN0) |= pins;
-    *(gpio->base + GPAFEN1) |= pins >> 32;
+    *(base + GPAFEN0) |= pins;
+    *(base + GPAFEN1) |= pins >> 32;
   }
 
   return GPIO_SUCCESS;
 }
 
-int bcm2835_gpio_set_enable_event_detect_pins(bcm2835_gpio_t *gpio, pin_t *pins,
+int bcm2835_gpio_set_enable_event_detect_pins(gpio_t *gpio, pin_t *pins,
                                               size_t n,
                                               detection_type_t value) {
   return bcm2835_gpio_set_enable_event_detect_bits(gpio, pins_to_bits(pins, n),
                                                    value);
 }
 
-int bcm2835_gpio_clear_enable_event_detect_bits(bcm2835_gpio_t *gpio,
-                                                uint64_t pins,
+int bcm2835_gpio_clear_enable_event_detect_bits(gpio_t *gpio, uint64_t pins,
                                                 detection_type_t value) {
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
 
   if (pins & 0xffc0000000000000) {
     return GPIO_ERR_INVALID_PIN;
   }
   if (value & DETECT_RISING) {
-    *(gpio->base + GPREN0) &= ~pins;
-    *(gpio->base + GPREN1) &= ~pins >> 32;
+    *(base + GPREN0) &= ~pins;
+    *(base + GPREN1) &= ~pins >> 32;
   }
   if (value & DETECT_FALLING) {
-    *(gpio->base + GPFEN0) &= ~pins;
-    *(gpio->base + GPFEN1) &= ~pins >> 32;
+    *(base + GPFEN0) &= ~pins;
+    *(base + GPFEN1) &= ~pins >> 32;
   }
   if (value & DETECT_HI) {
-    *(gpio->base + GPHEN0) &= ~pins;
-    *(gpio->base + GPHEN1) &= ~pins >> 32;
+    *(base + GPHEN0) &= ~pins;
+    *(base + GPHEN1) &= ~pins >> 32;
   }
   if (value & DETECT_LO) {
-    *(gpio->base + GPLEN0) &= ~pins;
-    *(gpio->base + GPLEN1) &= ~pins >> 32;
+    *(base + GPLEN0) &= ~pins;
+    *(base + GPLEN1) &= ~pins >> 32;
   }
   if (value & DETECT_ASYNC_RISING) {
-    *(gpio->base + GPAREN0) &= ~pins;
-    *(gpio->base + GPAREN1) &= ~pins >> 32;
+    *(base + GPAREN0) &= ~pins;
+    *(base + GPAREN1) &= ~pins >> 32;
   }
   if (value & DETECT_ASYNC_FALLING) {
-    *(gpio->base + GPAFEN0) &= ~pins;
-    *(gpio->base + GPAFEN1) &= ~pins >> 32;
+    *(base + GPAFEN0) &= ~pins;
+    *(base + GPAFEN1) &= ~pins >> 32;
   }
 
   return GPIO_SUCCESS;
 }
 
-int bcm2835_gpio_clear_enable_event_detect_pins(bcm2835_gpio_t *gpio,
-                                                pin_t *pins, size_t n,
+int bcm2835_gpio_clear_enable_event_detect_pins(gpio_t *gpio, pin_t *pins,
+                                                size_t n,
                                                 detection_type_t value) {
   return bcm2835_gpio_clear_enable_event_detect_bits(
       gpio, pins_to_bits(pins, n), value);
 }
 
-int bcm2835_gpio_get_enable_event_detect_pins(bcm2835_gpio_t *gpio, pin_t *pins,
+int bcm2835_gpio_get_enable_event_detect_pins(gpio_t *gpio, pin_t *pins,
                                               detection_type_t *values,
                                               size_t n) {
-  uint64_t gpren =
-      (((uint64_t) * (gpio->base + GPREN1)) << 32) | *(gpio->base + GPREN0);
-  uint64_t gpfen =
-      (((uint64_t) * (gpio->base + GPFEN1)) << 32) | *(gpio->base + GPFEN0);
-  uint64_t gphen =
-      (((uint64_t) * (gpio->base + GPHEN1)) << 32) | *(gpio->base + GPHEN0);
-  uint64_t gplen =
-      (((uint64_t) * (gpio->base + GPLEN1)) << 32) | *(gpio->base + GPLEN0);
-  uint64_t gparen =
-      (((uint64_t) * (gpio->base + GPAREN1)) << 32) | *(gpio->base + GPAREN0);
-  uint64_t gpafen =
-      (((uint64_t) * (gpio->base + GPAFEN1)) << 32) | *(gpio->base + GPAFEN0);
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
+  uint64_t gpren = (((uint64_t) * (base + GPREN1)) << 32) | *(base + GPREN0);
+  uint64_t gpfen = (((uint64_t) * (base + GPFEN1)) << 32) | *(base + GPFEN0);
+  uint64_t gphen = (((uint64_t) * (base + GPHEN1)) << 32) | *(base + GPHEN0);
+  uint64_t gplen = (((uint64_t) * (base + GPLEN1)) << 32) | *(base + GPLEN0);
+  uint64_t gparen = (((uint64_t) * (base + GPAREN1)) << 32) | *(base + GPAREN0);
+  uint64_t gpafen = (((uint64_t) * (base + GPAFEN1)) << 32) | *(base + GPAFEN0);
 
   for (int i = 0; i < n; i++) {
     if (pins[i] > 53) {
@@ -323,8 +299,9 @@ int bcm2835_gpio_get_enable_event_detect_pins(bcm2835_gpio_t *gpio, pin_t *pins,
   return GPIO_SUCCESS;
 }
 
-int bcm2835_gpio_set_pull_bits(bcm2835_gpio_t *gpio, uint64_t pins,
+int bcm2835_gpio_set_pull_bits(gpio_t *gpio, uint64_t pins,
                                pull_control_t value) {
+  volatile uint32_t *base = ((bcm2835_gpio_ext_t *)gpio->ext)->base;
   /*
    * The sequence to set internal pullup/pulldown resistors is
    *
@@ -340,21 +317,41 @@ int bcm2835_gpio_set_pull_bits(bcm2835_gpio_t *gpio, uint64_t pins,
   if (pins & 0xffc0000000000000) {
     return GPIO_ERR_INVALID_PIN;
   }
-  *(gpio->base + GPPUD) = value;
+  *(base + GPPUD) = value;
   usleep(10); // from raspi-gpio
-  *(gpio->base + GPPUDCLK0) = pins;
-  *(gpio->base + GPPUDCLK1) = pins >> 32;
+  *(base + GPPUDCLK0) = pins;
+  *(base + GPPUDCLK1) = pins >> 32;
   usleep(10);
-  *(gpio->base + GPPUD) = OFF;
+  *(base + GPPUD) = OFF;
   usleep(10);
-  *(gpio->base + GPPUDCLK0) = 0;
-  *(gpio->base + GPPUDCLK1) = 0;
+  *(base + GPPUDCLK0) = 0;
+  *(base + GPPUDCLK1) = 0;
   usleep(10);
 
   return GPIO_SUCCESS;
 };
 
-int bcm2835_gpio_set_pull_pins(bcm2835_gpio_t *gpio, pin_t *pins, size_t n,
+int bcm2835_gpio_set_pull_pins(gpio_t *gpio, pin_t *pins, size_t n,
                                pull_control_t value) {
   return bcm2835_gpio_set_pull_bits(gpio, pins_to_bits(pins, n), value);
+}
+
+int bcm2835_gpio_init(gpio_t *gpio, bcm2835_gpio_ext_t *ext) {
+  if (gpio == NULL || ext == NULL || ext->base == NULL) {
+    return -1; // TODO: better error return value.
+  }
+
+  gpio->close = bcm2835_gpio_close;
+  gpio->set_function_pins = bcm2835_gpio_set_function_pins;
+  gpio->set_function_bits = bcm2835_gpio_set_function_bits;
+  gpio->set_pull_pins = bcm2835_gpio_set_pull_pins;
+  gpio->set_pull_bits = bcm2835_gpio_set_pull_bits;
+  gpio->set_pins = bcm2835_gpio_set_pins;
+  gpio->set_bits = bcm2835_gpio_set_bits;
+  gpio->get_pins = bcm2835_gpio_get_pins;
+  gpio->get_bits = bcm2835_gpio_get_bits;
+
+  gpio->ext = ext;
+
+  return GPIO_SUCCESS;
 }

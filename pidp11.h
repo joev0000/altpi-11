@@ -24,7 +24,7 @@
 
 #include <pthread.h>
 
-#include "bcm2835_gpio.h"
+#include "gpio.h"
 
 typedef enum _addr_mode_t {
   ADDR_USER_D,
@@ -63,7 +63,7 @@ typedef enum _run_level_t {
 } run_level_t;
 
 typedef struct _pidp11_t {
-  bcm2835_gpio_t *gpio;
+  gpio_t *gpio;
   pthread_t update_thread;
 
   // The lamps
@@ -99,7 +99,6 @@ typedef struct _pidp11_t {
   char switch_data_rot2;
 } pidp11_t;
 
-
 /**
  * Initialize PiDP11. Starts a thread to continuously refresh the display.
  *
@@ -107,7 +106,7 @@ typedef struct _pidp11_t {
  * @param[in] gpio The GPIO connected to PiDP11
  * @return zero on success.
  */
-int pidp11_init(pidp11_t *pidp11, bcm2835_gpio_t *gpio);
+int pidp11_init(pidp11_t *pidp11, gpio_t *gpio);
 
 /**
  * Close PiDP11. Cancells the display update thread.

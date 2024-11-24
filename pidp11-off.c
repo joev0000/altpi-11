@@ -28,7 +28,8 @@
 #include "pidp11.h"
 
 int main(int argc, char **argv) {
-  bcm2835_gpio_t gpio = {0};
+  gpio_t gpio = {0};
+  bcm2835_gpio_ext_t ext = {0};
   pidp11_t pidp11 = {0};
 
   int mem_fd = open("/dev/gpiomem", O_RDWR | O_SYNC);
@@ -37,11 +38,12 @@ int main(int argc, char **argv) {
       NULL, mem_length, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, 0);
   close(mem_fd);
 
-  bcm2835_gpio_init(&gpio, base);
+  ext.base = base;
+  bcm2835_gpio_init(&gpio, &ext);
   pidp11_init(&pidp11, &gpio);
 
   pidp11_close(&pidp11);
-  bcm2835_gpio_close(&gpio);
+  gpio_close(&gpio);
 
   munmap((void *)base, mem_length);
   return 0;

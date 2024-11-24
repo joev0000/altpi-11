@@ -31,7 +31,12 @@
 #include "bcm2835_gpio.h"
 #include "pidp11.h"
 
+// sim_frontpanel.c: suppress compiler warnings.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #include "sim_frontpanel.c"
+#pragma GCC diagnostic pop
 
 static uint16_t reg_pc = 0;
 static uint16_t reg_dr = 0;
@@ -88,7 +93,8 @@ int rising_edge(int current_value, int *previous_value) {
 }
 
 int main(int argc, char **argv) {
-  bcm2835_gpio_t gpio = {0};
+  gpio_t gpio = {0};
+  bcm2835_gpio_ext_t ext = {0};
   pidp11_t pidp11 = {0};
 
   if (argc < 3) {
@@ -133,7 +139,8 @@ int main(int argc, char **argv) {
       NULL, mem_length, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, 0);
   close(mem_fd);
 
-  bcm2835_gpio_init(&gpio, base);
+  ext.base = base;
+  bcm2835_gpio_init(&gpio, &ext);
   pidp11_init(&pidp11, &gpio);
 
   sim_panel_add_register(panel, "PC", NULL, sizeof(reg_pc), &reg_pc);
@@ -227,7 +234,7 @@ int main(int argc, char **argv) {
 #endif
   sim_panel_destroy(panel);
   pidp11_close(&pidp11);
-  bcm2835_gpio_close(&gpio);
+  gpio_close(&gpio);
 
   munmap((void *)base, mem_length);
   return 0;
