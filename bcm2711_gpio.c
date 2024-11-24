@@ -45,10 +45,10 @@ int bcm2711_gpio_set_pull_bits(gpio_t *gpio, uint64_t pins,
     break;
   }
 
-  for(int reg = 0; reg < 3; reg++) {
+  for (int reg = 0; reg < 3; reg++) {
     uint32_t reg_value = 0;
-    for(int i = 0; i < 16; i++) {
-      if((pins & (1 << i)) != 0) {
+    for (int i = 0; i < 16; i++) {
+      if ((pins & (1 << i)) != 0) {
         reg_value = (reg_value & ~(3 << (i << 1))) | (v << (i << 1));
       }
     }
@@ -56,11 +56,11 @@ int bcm2711_gpio_set_pull_bits(gpio_t *gpio, uint64_t pins,
   }
 
   // Check bits 48-57 for CNTRL_REG3
-  if((pins & (0x03ff000000000000)) != 0) {
+  if ((pins & (0x03ff000000000000)) != 0) {
     uint64_t p = pins >> 48;
     uint32_t reg_value = 0;
-    for(int i = 0; i < 10; i++) {
-      if((p & (1 << i)) != 0) {
+    for (int i = 0; i < 10; i++) {
+      if ((p & (1 << i)) != 0) {
         reg_value = (reg_value & ~(3 << (i << 1))) | (v << (i << 1));
       }
     }

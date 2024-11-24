@@ -23,9 +23,9 @@
 #ifndef BCM2711_GPIO_H
 #define BCM2711_GPIO_H
 
-#include <stddef.h>
-#include "gpio.h"
 #include "bcm2835_gpio.h"
+#include "gpio.h"
+#include <stddef.h>
 
 static const int GPIO_PUP_PDN_CNTRL_REG0 = 0xE4 >> 2;
 static const int GPIO_PUP_PDN_CNTRL_REG1 = 0xE8 >> 2;
