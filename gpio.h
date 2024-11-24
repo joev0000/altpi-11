@@ -35,7 +35,9 @@ typedef enum _pin_function_t {
   ALT0,
   ALT1,
   ALT2,
-  ALT3
+  ALT3,
+  ALT6,
+  ALT7
 } pin_function_t;
 
 typedef enum _pull_control_t { OFF, DOWN, UP } pull_control_t;
