@@ -62,6 +62,10 @@ typedef struct _gpio_t {
   void *ext;
 } gpio_t;
 
+static const int GPIO_SUCCESS = 0;
+static const int GPIO_ERR_INVALID_PIN = 1;
+static const int GPIO_ERR_INVALID_BASE = 2;
+
 /**
  * Close a GPIO device.
  *

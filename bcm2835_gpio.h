@@ -76,10 +76,6 @@ static const detection_type_t DETECT_ALL =
     DETECT_RISING | DETECT_FALLING | DETECT_HI | DETECT_LO |
     DETECT_ASYNC_RISING | DETECT_ASYNC_FALLING;
 
-static const int GPIO_SUCCESS = 0;
-static const int GPIO_ERR_INVALID_PIN = 1;
-static const int GPIO_ERR_INVALID_BASE = 2;
-
 /**
  * Extension structure for BCM2835 GPIO
  */
