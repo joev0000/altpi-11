@@ -23,6 +23,7 @@
 #ifndef GPIO_H
 #define GPIO_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef unsigned int pin_t;
