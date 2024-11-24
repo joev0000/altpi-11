@@ -20,8 +20,8 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef bcm2835_bcm2835_GPIO_GPIO_H
-#define bcm2835_bcm2835_GPIO_GPIO_H
+#ifndef BCM2835_GPIO_H
+#define BCM2835_GPIO_H
 
 #include <stddef.h>
 #include <stdint.h>
